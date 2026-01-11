@@ -11,7 +11,7 @@
     <!-- GSAP -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
-    <!-- MediaPipe Hands -->
+
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
         crossorigin="anonymous"></script>
@@ -23,6 +23,17 @@
 </head>
 
 <body>
+
+    <div id="preloader">
+        <div class="striker-loader">
+            <div class="striker-inner"></div>
+            <div class="striker-ring"></div>
+        </div>
+        <div class="loader-text">SYSTEM INITIALIZING</div>
+        <div class="loading-bar">
+            <div class="loading-progress"></div>
+        </div>
+    </div>
 
     <div id="game-container">
         <canvas id="gl-canvas"></canvas>
@@ -45,6 +56,7 @@
             </div>
 
             <div id="turn-display" class="turn-indicator">PLAYER 1</div>
+            <div id="turn-timer" class="timer-display">30</div>
             <div id="status-display" class="status-msg"></div>
             <div id="foul-msg">FOUL</div>
             <div id="power-container">
@@ -169,7 +181,9 @@
                 striker: 'neon'
             },
             gameActive: false,
-            aiTimer: null
+            aiTimer: null,
+            limitTimer: null,
+            timeLeft: 30
         };
 
         let bodies = [];
@@ -427,9 +441,7 @@
             setTimeout(() => div.remove(), 1200);
         }
 
-        // ==========================================
-        // SOUND MANAGER (Web Audio API)
-        // ==========================================
+
         const SOUND = {
             ctx: null,
             init: function () {
@@ -494,15 +506,24 @@
             }
         };
 
-        // ==========================================
-        // GAME LOGIC MANAGER
-        // ==========================================
+
 
         const GAME = {
             initNetwork: async function () {
-                if (typeof __firebase_config === 'undefined') return;
-                // Initialize sound on first interaction attempt
+                // Preloader Logic
+                const preloader = document.getElementById('preloader');
+
+                setTimeout(() => {
+                    preloader.style.opacity = 0;
+                    setTimeout(() => {
+                        preloader.style.display = 'none';
+                    }, 800);
+                }, 2500);
+
+                // Initialize sound on first interaction (Global Fallback)
                 document.body.addEventListener('click', () => { if (!SOUND.ctx) SOUND.init(); }, { once: true });
+
+                if (typeof __firebase_config === 'undefined') return;
 
                 const config = JSON.parse(__firebase_config);
                 const app = initializeApp(config);
@@ -586,7 +607,9 @@
             retryMatch: function () { document.getElementById('no-match').classList.add('hidden'); this.start(3); },
             resetMatch: function () {
                 if (STATE.aiTimer) clearTimeout(STATE.aiTimer);
+                if (STATE.limitTimer) clearInterval(STATE.limitTimer);
                 STATE.gameActive = false;
+                document.getElementById('turn-timer').classList.add('hidden');
                 document.getElementById('game-over').classList.add('hidden');
                 document.getElementById('main-menu').classList.remove('hidden');
             },
@@ -660,7 +683,10 @@
             },
 
             setTurn: function (pIdx) {
+                if (STATE.limitTimer) clearInterval(STATE.limitTimer);
                 STATE.turn = pIdx; STATE.isStrikerMoving = false; STATE.inputEnabled = false;
+
+                this.startTurnTimer();
 
                 let txt = ""; let color = "#fff";
                 const hud = document.getElementById('turn-display');
@@ -698,6 +724,28 @@
                 this.setTurn((STATE.turn + 1) % 2);
             },
 
+            startTurnTimer: function () {
+                const el = document.getElementById('turn-timer');
+                el.classList.remove('hidden');
+                STATE.timeLeft = 30;
+                el.innerText = STATE.timeLeft;
+
+                STATE.limitTimer = setInterval(() => {
+                    STATE.timeLeft--;
+                    el.innerText = STATE.timeLeft;
+                    if (STATE.timeLeft <= 10) el.style.color = '#ff0055';
+                    else el.style.color = '#00ffcc';
+
+                    if (STATE.timeLeft <= 0) {
+                        clearInterval(STATE.limitTimer);
+                        if (STATE.gameActive) {
+                            STATE.turn = (STATE.turn + 1) % 2; // Force switch without checking win
+                            this.setTurn(STATE.turn);
+                        }
+                    }
+                }, 1000);
+            },
+
             checkWin: function () {
                 if (!STATE.gameActive) return false;
                 const activeW = bodies.filter(b => b.active && b.type === 'white').length;
@@ -733,6 +781,8 @@
                             const force = 0.8 + Math.random() * 0.5;
                             strikerBody.velocity.set(dx / dist * force, 0, dz / dist * force);
                             STATE.isStrikerMoving = true;
+                            if (STATE.limitTimer) clearInterval(STATE.limitTimer);
+                            document.getElementById('turn-timer').classList.add('hidden');
                             SOUND.shoot();
                         }
                     });
@@ -801,6 +851,8 @@
                         flashPocket(b.mesh.position, 0xff0000);
                         SOUND.foul();
                         GAME.spawnPenaltyCoin();
+                        document.getElementById('score-p1').innerText = STATE.scores[0];
+                        document.getElementById('score-p2').innerText = STATE.scores[1];
                         setTimeout(() => { STATE.isStrikerMoving = false; GAME.nextTurn(); }, 1000);
                         return;
                     } else {
@@ -948,8 +1000,11 @@
                         if (trajectoryLine.visible && STATE.aim.vector.length() > 0.1) {
                             strikerBody.velocity.copy(STATE.aim.vector);
                             STATE.isStrikerMoving = true;
+                            if (STATE.limitTimer) clearInterval(STATE.limitTimer);
+                            document.getElementById('turn-timer').classList.add('hidden');
                             uiPower.style.display = 'none';
                             if (STATE.mode === 3) GAME.sendMove(STATE.aim.vector, strikerBody.mesh.position.x);
+                            SOUND.shoot();
                         }
                         STATE.hand.pinching = false; STATE.aim.active = false; trajectoryLine.visible = false;
                     } else {
