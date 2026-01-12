@@ -686,6 +686,26 @@ body {
     }
 }
 
+/* Player Name Inputs */
+input[type="text"] {
+    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+input[type="text"]:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 204, 0.3), inset 0 0 10px rgba(0, 255, 204, 0.1) !important;
+    transform: translateY(-2px);
+}
+
+input[type="text"]:hover {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+input[type="text"]::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 2px;
+}
+
 /* =========================================
    MOBILE RESPONSIVENESS
    ========================================= */

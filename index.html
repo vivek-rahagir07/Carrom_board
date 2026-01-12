@@ -131,6 +131,26 @@
             </div>
         </div>
 
+        <!-- PLAYER NAMES INPUT -->
+        <div id="player-names" class="overlay-screen hidden">
+            <h2 style="color: #fff; letter-spacing: 4px; margin-bottom: 40px; font-size: 2rem;">ENTER PLAYER NAMES</h2>
+            <div style="display: flex; flex-direction: column; gap: 30px; width: 80%; max-width: 500px;">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <label style="color: var(--primary); font-size: 0.9rem; letter-spacing: 3px;">PLAYER 1</label>
+                    <input type="text" id="input-p1" maxlength="15" placeholder="Enter name..."
+                        style="padding: 15px 20px; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); color: #fff; font-family: 'Orbitron', sans-serif; font-size: 1rem; border-radius: 8px; outline: none; backdrop-filter: blur(10px); transition: all 0.3s;" />
+                </div>
+                <div id="p2-input-container" style="display: flex; flex-direction: column; gap: 10px;">
+                    <label style="color: var(--danger); font-size: 0.9rem; letter-spacing: 3px;">PLAYER 2</label>
+                    <input type="text" id="input-p2" maxlength="15" placeholder="Enter name..."
+                        style="padding: 15px 20px; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); color: #fff; font-family: 'Orbitron', sans-serif; font-size: 1rem; border-radius: 8px; outline: none; backdrop-filter: blur(10px); transition: all 0.3s;" />
+                </div>
+            </div>
+            <button class="btn" id="btn-start-game"
+                style="margin-top: 50px; background: var(--primary); color: #000; border: none; box-shadow: 0 0 30px rgba(0,255,204,0.5);">START
+                GAME</button>
+        </div>
+
         <!-- GAME OVER -->
         <div id="game-over" class="overlay-screen hidden">
             <div class="trophy-container">
@@ -169,6 +189,7 @@
         const STATE = {
             mode: 0, turn: 0, myPlayerIndex: 0,
             scores: [0, 0],
+            playerNames: ['PLAYER 1', 'PLAYER 2'],
             isStrikerMoving: false,
             hand: { x: 0, y: 0, z: 0, pinching: false },
             aim: { active: false, power: 0, vector: new THREE.Vector3(), origin: { x: 0, z: 0 } },
@@ -537,12 +558,32 @@
                 userId = auth.currentUser.uid;
             },
 
+            showNameInput: function (mode) {
+                STATE.mode = mode;
+                document.getElementById('main-menu').classList.add('hidden');
+                document.getElementById('player-names').classList.remove('hidden');
+
+                // Reset input fields
+                document.getElementById('input-p1').value = '';
+                document.getElementById('input-p2').value = '';
+
+                // Always show player 2 input and update label based on mode
+                const p2Container = document.getElementById('p2-input-container');
+                p2Container.style.display = 'flex';
+                const p2Label = p2Container.querySelector('label');
+                p2Label.innerText = mode === 2 ? 'CPU' : 'PLAYER 2';
+
+                // Focus on first input
+                setTimeout(() => document.getElementById('input-p1').focus(), 100);
+            },
+
             start: async function (mode) {
                 if (STATE.aiTimer) clearTimeout(STATE.aiTimer);
                 if (!SOUND.ctx) SOUND.init();
                 STATE.mode = mode; STATE.scores = [0, 0]; STATE.gameActive = false;
 
                 document.getElementById('main-menu').classList.add('hidden');
+                document.getElementById('player-names').classList.add('hidden');
                 document.getElementById('matchmaking').classList.add('hidden');
                 document.getElementById('no-match').classList.add('hidden');
                 document.getElementById('game-over').classList.add('hidden');
@@ -554,6 +595,11 @@
                 surface.material = matLib[STATE.theme.board];
                 const sMat = STATE.theme.striker === 'neon' ? matLib.strikerNeon : (STATE.theme.striker === 'mandala' ? matLib.strikerMandala : matLib.strikerCyber);
                 strikerBody.mesh.material = sMat;
+
+                // Update player labels
+                document.getElementById('score-p1').parentElement.querySelector('.score-label').innerText = STATE.playerNames[0];
+                const p2Label = document.getElementById('p2-label');
+                if (p2Label) p2Label.innerText = STATE.playerNames[1];
 
                 if (mode === 3) {
                     if (!db) { alert("Offline mode only"); STATE.mode = 2; this.start(2); return; }
@@ -596,8 +642,6 @@
 
                 } else {
                     STATE.myPlayerIndex = 0;
-                    const p2Label = document.getElementById('p2-label');
-                    if (p2Label) p2Label.innerText = mode === 2 ? "CPU" : "PLAYER 2";
                     this.setupBoard();
                     this.setTurn(0);
                 }
@@ -691,7 +735,7 @@
                 let txt = ""; let color = "#fff";
                 const hud = document.getElementById('turn-display');
 
-                txt = pIdx === 0 ? "PLAYER 1 TURN" : (STATE.mode === 2 ? "CPU MOVING..." : "PLAYER 2 TURN");
+                txt = `${STATE.playerNames[pIdx]} TURN`;
                 color = pIdx === 0 ? "#00ffcc" : "#ff0055";
 
                 hud.innerText = txt; hud.style.borderColor = color; hud.style.color = color;
@@ -755,8 +799,8 @@
                 if (activeW === 0 && activeB === 0 && activeQ === 0) {
                     STATE.gameActive = false;
                     let w = "DRAW";
-                    if (STATE.scores[0] > STATE.scores[1]) w = "PLAYER 1 WINS!";
-                    else if (STATE.scores[1] > STATE.scores[0]) w = "PLAYER 2 WINS!";
+                    if (STATE.scores[0] > STATE.scores[1]) w = `${STATE.playerNames[0]} WINS!`;
+                    else if (STATE.scores[1] > STATE.scores[0]) w = `${STATE.playerNames[1]} WINS!`;
 
                     document.getElementById('winner-text').innerText = w;
                     document.getElementById('game-over').classList.remove('hidden');
@@ -1049,9 +1093,23 @@
             document.getElementById('main-menu').classList.remove('hidden');
         });
 
-        safeBind('btn-solo', 'click', () => GAME.start(1));
-        safeBind('btn-cpu', 'click', () => GAME.start(2));
-        safeBind('btn-online', 'click', () => GAME.start(3));
+        safeBind('btn-solo', 'click', () => GAME.showNameInput(1));
+        safeBind('btn-cpu', 'click', () => GAME.showNameInput(2));
+        safeBind('btn-online', 'click', () => GAME.showNameInput(3));
+
+        safeBind('btn-start-game', 'click', () => {
+            const p1Name = document.getElementById('input-p1').value.trim();
+            const p2Name = document.getElementById('input-p2').value.trim();
+
+            STATE.playerNames[0] = p1Name || 'PLAYER 1';
+            if (STATE.mode === 2) {
+                STATE.playerNames[1] = p2Name || 'CPU';
+            } else {
+                STATE.playerNames[1] = p2Name || 'PLAYER 2';
+            }
+
+            GAME.start(STATE.mode);
+        });
         safeBind('btn-menu', 'click', () => location.reload());
         safeBind('btn-replay', 'click', () => GAME.resetMatch());
 
