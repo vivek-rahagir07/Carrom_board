@@ -10,7 +10,7 @@
     --neon-glow: 0 0 10px rgba(0, 255, 204, 0.5), 0 0 20px rgba(0, 255, 204, 0.3);
 }
 
-/* Preloader */
+/* Loader */
 #preloader {
     position: fixed;
     top: 0;
@@ -163,7 +163,7 @@ body {
     z-index: 1;
 }
 
-/* RGB Animated Border for Camera */
+/* Camera */
 #cam-preview {
     position: absolute;
     bottom: 30px;
@@ -433,7 +433,7 @@ body {
     animation: floatUp 1.2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
-/* Screens */
+/* UI */
 .matchmaking-screen,
 .overlay-screen,
 .custom-screen {
@@ -529,7 +529,7 @@ body {
 }
 
 
-/* Customization Grid */
+/* Grid */
 .option-grid {
     display: flex;
     gap: 30px;
@@ -625,7 +625,7 @@ body {
     }
 }
 
-/* Trophy Animation */
+/* Trophy */
 .trophy-container {
     position: relative;
     display: flex;
@@ -686,7 +686,7 @@ body {
     }
 }
 
-/* Player Name Inputs */
+/* Inputs */
 input[type="text"] {
     transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
 }
@@ -706,9 +706,7 @@ input[type="text"]::placeholder {
     letter-spacing: 2px;
 }
 
-/* =========================================
-   MOBILE RESPONSIVENESS
-   ========================================= */
+/* Mobile */
 @media (max-width: 768px) {
 
     /* Adjust HUD layout */

@@ -6,11 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neon Carrom - RGB Edition</title>
 
-    <!-- Three.js -->
+    <!-- Libs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- GSAP -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
@@ -69,14 +67,13 @@
             </div>
         </div>
 
-        <!-- LOADING -->
+        <!-- UI -->
         <div id="loading" class="overlay-screen">
             <div class="spinner"></div>
             <div style="letter-spacing: 4px; font-size: 0.8rem; color: #fff;">SYSTEM INITIALIZING</div>
             <div id="error-msg" style="color: #ff3333; font-size: 0.7rem; margin-top: 20px;"></div>
         </div>
 
-        <!-- MAIN MENU -->
         <div id="main-menu" class="overlay-screen hidden">
             <h1
                 style="font-size: 5rem; background: linear-gradient(to right, #00ffcc, #ff00cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 10px; filter: drop-shadow(0 0 20px rgba(0,255,204,0.3)); margin-bottom: 0;">
@@ -92,7 +89,6 @@
             </div>
         </div>
 
-        <!-- CUSTOMIZATION SCREEN -->
         <div id="customize-screen" class="custom-screen hidden">
             <h2 style="margin-bottom: 20px; color:#fff; letter-spacing: 4px;">SELECT BOARD</h2>
             <div class="option-grid" id="board-options">
@@ -113,7 +109,6 @@
                 GAME</button>
         </div>
 
-        <!-- MATCHMAKING SCREEN -->
         <div id="matchmaking" class="matchmaking-screen hidden">
             <div class="radar-spinner"></div>
             <h2 style="margin-top: 30px; color: #00ffcc; letter-spacing: 2px;">SCANNING NETWORK</h2>
@@ -122,7 +117,6 @@
                 style="margin-top: 40px; border-color:#333; color:#666;">CANCEL</button>
         </div>
 
-        <!-- NO PLAYER FOUND -->
         <div id="no-match" class="matchmaking-screen hidden">
             <h2 style="color: #ff0055; font-size: 1.5rem;">NO OPPONENT FOUND</h2>
             <div style="display:flex; gap: 20px; margin-top: 40px;">
@@ -131,7 +125,6 @@
             </div>
         </div>
 
-        <!-- PLAYER NAMES INPUT -->
         <div id="player-names" class="overlay-screen hidden">
             <h2 style="color: #fff; letter-spacing: 4px; margin-bottom: 40px; font-size: 2rem;">ENTER PLAYER NAMES</h2>
             <div style="display: flex; flex-direction: column; gap: 30px; width: 80%; max-width: 500px;">
@@ -151,7 +144,6 @@
                 GAME</button>
         </div>
 
-        <!-- GAME OVER -->
         <div id="game-over" class="overlay-screen hidden">
             <div class="trophy-container">
                 <div class="trophy">🏆</div>
@@ -172,7 +164,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, doc, onSnapshot, updateDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- Config ---
+        // Config
         const CONFIG = {
             boardSize: 38,
             boundary: 17,
@@ -185,7 +177,7 @@
             cameraHeight: 40
         };
 
-        // --- State ---
+        // State
         const STATE = {
             mode: 0, turn: 0, myPlayerIndex: 0,
             scores: [0, 0],
@@ -211,9 +203,7 @@
         let pocketRings = [];
         let db, auth, userId;
 
-        // ==========================================
-        // THREE.JS SETUP
-        // ==========================================
+        // Three.js
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x050505);
         scene.fog = new THREE.FogExp2(0x050505, 0.015);
@@ -227,7 +217,7 @@
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-        // --- Dynamic Lighting ---
+        // Lights
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
         scene.add(ambientLight);
 
@@ -241,24 +231,24 @@
         fillLight.position.set(-20, 30, -20);
         scene.add(fillLight);
 
-        // --- Animated Background Elements ---
+        // Background
         const bgGroup = new THREE.Group();
         scene.add(bgGroup);
 
-        // Wireframe Icosahedron
+        // Icosahedron
         const icoGeo = new THREE.IcosahedronGeometry(200, 1);
         const icoMat = new THREE.MeshBasicMaterial({ color: 0x003344, wireframe: true, transparent: true, opacity: 0.1 });
         const ico = new THREE.Mesh(icoGeo, icoMat);
         bgGroup.add(ico);
 
-        // Digital Grid
+        // Grid
         const gridHelper = new THREE.GridHelper(500, 50, 0x00ffcc, 0x003344);
         gridHelper.position.y = -20;
         gridHelper.material.transparent = true;
         gridHelper.material.opacity = 0.2;
         bgGroup.add(gridHelper);
 
-        // Texture Generation
+        // Textures
         function createPatternTexture(type) {
             const canvas = document.createElement('canvas');
             canvas.width = 256; canvas.height = 256;
@@ -330,7 +320,7 @@
         const boardGroup = new THREE.Group();
         scene.add(boardGroup);
 
-        // Main Surface
+        // Surface
         const surface = new THREE.Mesh(new THREE.BoxGeometry(CONFIG.boardSize, 1, CONFIG.boardSize), matLib.midnight);
         surface.position.y = -0.5; surface.receiveShadow = true;
         boardGroup.add(surface);
@@ -339,7 +329,7 @@
         function createWall(x, z, w, d) {
             const wall = new THREE.Mesh(new THREE.BoxGeometry(w, 2.5, d), matLib.woodFrame);
             wall.position.set(x, 0.75, z); wall.castShadow = true; boardGroup.add(wall);
-            // Animated Neon Strip
+            // Neon
             const strip = new THREE.Mesh(new THREE.BoxGeometry(w > d ? w : 0.1, 0.05, w > d ? 0.1 : d), matLib.neon);
             strip.position.set(x, 2.05, z); boardGroup.add(strip);
         }
@@ -357,7 +347,7 @@
             const p = new THREE.Mesh(pocketGeo, matLib.pocket);
             p.position.set(pos.x, 0, pos.z); boardGroup.add(p);
 
-            // Pocket Glow Ring
+            // Unused glow ring
             const ringMat = new THREE.MeshBasicMaterial({ color: 0x00aaff, transparent: true, opacity: 0.3 });
             const ring = new THREE.Mesh(new THREE.RingGeometry(CONFIG.pocketRadius, CONFIG.pocketRadius + 0.2, 32), ringMat);
             ring.rotation.x = -Math.PI / 2; ring.position.set(pos.x, 0.05, pos.z);
@@ -383,7 +373,7 @@
             boardGroup.add(createSide(0)); boardGroup.add(createSide(Math.PI));
             boardGroup.add(createSide(Math.PI / 2)); boardGroup.add(createSide(-Math.PI / 2));
 
-            // Center Design
+            // Center
             const centerRing = new THREE.Mesh(new THREE.RingGeometry(3.5, 3.6, 64), new THREE.MeshBasicMaterial({ color: 0xff0055 }));
             centerRing.rotation.x = -Math.PI / 2; centerRing.position.y = 0.01;
             boardGroup.add(centerRing);
@@ -422,7 +412,7 @@
             particles.add(sys);
         }
 
-        // --- VISUAL EFFECTS ---
+        // Effects
         function flashPocket(pos, colorHex) {
             let closest = null; let minD = Infinity;
             pocketRings.forEach(ring => {
@@ -436,7 +426,7 @@
                 gsap.to(closest.scale, { x: 1, y: 1, duration: 0.6, ease: "elastic.out(1, 0.3)" });
                 gsap.to(closest.material.color, { r: 0, g: 0.66, b: 1, duration: 0.6 });
 
-                // Add a point light burst
+                // Burst
                 const burst = new THREE.PointLight(colorHex, 2, 10);
                 burst.position.copy(closest.position);
                 burst.position.y += 2;
@@ -509,7 +499,7 @@
                 this.playTone(200, 'sine', 0.1, vol * 0.5);
             },
             pocket: function () {
-                // Satisfying "Plink"
+                // Plink
                 this.playTone(1200, 'sine', 0.3, 0.2);
                 setTimeout(() => this.playTone(1800, 'sine', 0.4, 0.1), 50);
                 setTimeout(() => this.playTone(2400, 'triangle', 0.5, 0.05), 100);
@@ -531,7 +521,7 @@
 
         const GAME = {
             initNetwork: async function () {
-                // Preloader Logic
+                // Loader
                 const preloader = document.getElementById('preloader');
 
                 setTimeout(() => {
@@ -541,7 +531,7 @@
                     }, 800);
                 }, 2500);
 
-                // Initialize sound on first interaction (Global Fallback)
+                // Init sound
                 document.body.addEventListener('click', () => { if (!SOUND.ctx) SOUND.init(); }, { once: true });
 
                 if (typeof __firebase_config === 'undefined') return;
@@ -591,12 +581,12 @@
 
                 STATE.inputEnabled = true;
 
-                // Apply Themes
+                // Themes
                 surface.material = matLib[STATE.theme.board];
                 const sMat = STATE.theme.striker === 'neon' ? matLib.strikerNeon : (STATE.theme.striker === 'mandala' ? matLib.strikerMandala : matLib.strikerCyber);
                 strikerBody.mesh.material = sMat;
 
-                // Update player labels
+                // UI
                 document.getElementById('score-p1').parentElement.querySelector('.score-label').innerText = STATE.playerNames[0];
                 const p2Label = document.getElementById('p2-label');
                 if (p2Label) p2Label.innerText = STATE.playerNames[1];
@@ -709,7 +699,7 @@
                 const mesh = new THREE.Mesh(new THREE.CylinderGeometry(CONFIG.coinRadius, CONFIG.coinRadius, 0.4, 24), matLib[type]);
                 mesh.position.set(x, 0.2, z); mesh.castShadow = true; scene.add(mesh);
 
-                // Visual Ring
+                // Ring
                 const ringColor = type === 'black' ? 0x00ffcc : (type === 'white' ? 0x333333 : 0xffaa00);
                 const ringGeo = new THREE.RingGeometry(CONFIG.coinRadius * 0.5, CONFIG.coinRadius * 0.8, 24);
                 const ringMat = new THREE.MeshBasicMaterial({ color: ringColor });
