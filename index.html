@@ -76,7 +76,7 @@
 
         <div id="main-menu" class="overlay-screen hidden">
             <h1
-                style="font-size: 5rem; background: linear-gradient(to right, #00ffcc, #ff00cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 10px; filter: drop-shadow(0 0 20px rgba(0,255,204,0.3)); margin-bottom: 0;">
+                style="font-size: 5rem; background: linear-gradient(to right, #00ffcc, #ff00cc); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 10px; filter: drop-shadow(0 0 20px rgba(0,255,204,0.3)); margin-bottom: 0;">
                 CARROM</h1>
             <h2 style="color: #fff; margin-bottom: 50px; letter-spacing: 8px; font-size: 1rem; opacity: 0.7;">GESTURE
                 ARCADE</h2>
@@ -99,9 +99,15 @@
 
             <h2 style="margin-bottom: 20px; color:#fff; letter-spacing: 4px; margin-top: 30px;">STRIKER DESIGN</h2>
             <div class="option-grid" id="striker-options">
-                <div class="option-item selected" data-type="neon">NEON CORE</div>
-                <div class="option-item" data-type="mandala">MANDALA</div>
-                <div class="option-item" data-type="cyber">CYBER HEX</div>
+                <div class="option-item selected" data-type="neon">NEON-X</div>
+                <div class="option-item" data-type="mandala">ROYAL</div>
+                <div class="option-item" data-type="cyber">CORE</div>
+            </div>
+
+            <h2 style="margin-bottom: 20px; color:#fff; letter-spacing: 4px; margin-top: 30px;">CONTROL MODE</h2>
+            <div class="option-grid" id="control-options">
+                <div class="option-item" data-type="camera">GESTURE</div>
+                <div class="option-item selected" data-type="touch">TOUCH</div>
             </div>
 
             <button class="btn" id="btn-save-custom"
@@ -193,6 +199,7 @@
                 board: 'midnight',
                 striker: 'neon'
             },
+            controlMode: 'touch', // Default to touch for better mobile experience
             gameActive: false,
             aiTimer: null,
             limitTimer: null,
@@ -450,6 +457,23 @@
             div.style.left = `${x}px`; div.style.top = `${y}px`;
             document.body.appendChild(div);
             setTimeout(() => div.remove(), 1200);
+        }
+
+        function updateInstructions() {
+            const container = document.querySelector('.instructions');
+            if (STATE.controlMode === 'camera') {
+                container.innerHTML = `
+                    <div>WAVE to Slide</div>
+                    <div>PINCH to Shoot</div>
+                `;
+                document.getElementById('cam-preview').style.display = 'block';
+            } else {
+                container.innerHTML = `
+                    <div>DRAG to Slide</div>
+                    <div>PULL to Shoot</div>
+                `;
+                document.getElementById('cam-preview').style.display = 'none';
+            }
         }
 
 
@@ -958,6 +982,10 @@
         const handSmooth = { x: 0, y: 0 };
 
         function onResults(results) {
+            if (STATE.controlMode !== 'camera') {
+                cursorMesh.visible = false;
+                return;
+            }
             if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
                 cursorMesh.visible = false; document.getElementById('status-display').innerText = "WAITING FOR HAND..."; return;
             }
@@ -1051,6 +1079,95 @@
             }
         }
 
+        // --- Touch/Mouse Controls ---
+        let isPointerDown = false;
+
+        function handlePointerDown(e) {
+            if (STATE.controlMode !== 'touch' || !STATE.inputEnabled || STATE.isStrikerMoving) return;
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const vector = new THREE.Vector3(x, y, 0.5);
+            vector.unproject(camera);
+            const dir = vector.sub(camera.position).normalize();
+            const distance = -camera.position.y / dir.y;
+            const pos = camera.position.clone().add(dir.multiplyScalar(distance));
+
+            isPointerDown = true;
+            STATE.aim.origin = { x: pos.x, z: pos.z };
+            STATE.aim.active = true;
+        }
+
+        function handlePointerMove(e) {
+            if (STATE.controlMode !== 'touch' || !STATE.inputEnabled || STATE.isStrikerMoving) return;
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const vector = new THREE.Vector3(x, y, 0.5);
+            vector.unproject(camera);
+            const dir = vector.sub(camera.position).normalize();
+            const distance = -camera.position.y / dir.y;
+            const pos = camera.position.clone().add(dir.multiplyScalar(distance));
+
+            if (!isPointerDown) {
+                if (strikerBody.active) {
+                    const lim = CONFIG.boundary - 2;
+                    strikerBody.mesh.position.x = Math.max(-lim, Math.min(lim, pos.x));
+                }
+                return;
+            }
+
+            const pullX = STATE.aim.origin.x - pos.x;
+            const pullZ = STATE.aim.origin.z - pos.z;
+            const powerRaw = Math.sqrt(pullX * pullX + pullZ * pullZ);
+            const maxPull = 12;
+            const power = Math.min(powerRaw, maxPull) / maxPull;
+
+            const uiPower = document.getElementById('power-container');
+            const uiFill = document.getElementById('power-fill');
+            uiPower.style.display = 'block';
+            uiFill.style.width = (power * 100) + '%';
+
+            if (power > 0.05) {
+                const aimDir = new THREE.Vector3(pullX, 0, pullZ).normalize();
+                const force = aimDir.clone().multiplyScalar(power * 1.8);
+                const start = strikerBody.mesh.position.clone();
+                const trajectoryEnd = start.clone().add(aimDir.clone().multiplyScalar(15 * power));
+                trajectoryLine.geometry.setFromPoints([start, trajectoryEnd]);
+                trajectoryLine.computeLineDistances();
+                trajectoryLine.visible = true;
+                trajectoryLine.material.color.setHSL((1 - power) * 0.33, 1, 0.5);
+                STATE.aim.vector = force;
+            }
+        }
+
+        function handlePointerUp() {
+            if (!isPointerDown) return;
+            isPointerDown = false;
+
+            if (STATE.controlMode === 'touch' && STATE.aim.active) {
+                if (trajectoryLine.visible && STATE.aim.vector.length() > 0.1) {
+                    strikerBody.velocity.copy(STATE.aim.vector);
+                    STATE.isStrikerMoving = true;
+                    if (STATE.limitTimer) clearInterval(STATE.limitTimer);
+                    document.getElementById('turn-timer').classList.add('hidden');
+                    if (STATE.mode === 3) GAME.sendMove(STATE.aim.vector, strikerBody.mesh.position.x);
+                    SOUND.shoot();
+                }
+                STATE.aim.active = false;
+                trajectoryLine.visible = false;
+                document.getElementById('power-container').style.display = 'none';
+            }
+        }
+
+        renderer.domElement.addEventListener('pointerdown', handlePointerDown);
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+
         // --- Safely Bind Listeners ---
         function safeBind(id, event, handler) {
             const el = document.getElementById(id);
@@ -1075,6 +1192,15 @@
                 document.querySelectorAll('#striker-options .option-item').forEach(i => i.classList.remove('selected'));
                 e.target.classList.add('selected');
                 STATE.theme.striker = e.target.dataset.type;
+            });
+        });
+
+        document.querySelectorAll('#control-options .option-item').forEach(el => {
+            el.addEventListener('click', (e) => {
+                document.querySelectorAll('#control-options .option-item').forEach(i => i.classList.remove('selected'));
+                e.target.classList.add('selected');
+                STATE.controlMode = e.target.dataset.type;
+                updateInstructions();
             });
         });
 
@@ -1113,6 +1239,7 @@
         safeBind('btn-cpu-fallback', 'click', () => GAME.start(2));
 
         GAME.initNetwork();
+        updateInstructions();
 
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
         hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });

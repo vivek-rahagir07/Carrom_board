@@ -800,22 +800,32 @@ input[type="text"]::placeholder {
     #customize-screen {
         overflow-y: auto;
         justify-content: flex-start;
-        padding-top: 80px;
+        padding: 80px 20px 40px;
     }
 
     .option-grid {
-        flex-direction: column;
-        /* Stack vertically on mobile */
+        flex-direction: row;
+        /* Try horizontal scrolling instead of vertical stacking for better UX */
+        overflow-x: auto;
+        width: 100%;
+        padding: 10px;
         gap: 15px;
         margin-bottom: 30px;
-        width: 80%;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .option-grid::-webkit-scrollbar {
+        display: none;
     }
 
     .option-item {
-        padding: 15px;
-        width: 100%;
+        padding: 12px 25px;
+        flex: 0 0 auto;
+        /* Prevent shrinking */
         text-align: center;
         box-sizing: border-box;
+        font-size: 0.8rem;
     }
 
     /* Foul Message */
